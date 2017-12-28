@@ -162,7 +162,7 @@ dist, mtx = load_camera_parameters(path_camera)
 # ------------------------------------------------------------------------------------
 # Binary segmentation
 path = './test_images/'
-idx = 6
+idx = 4
 image = cv2.imread(path +'test' + str(idx) + '.jpg')
 image = undistort_image(image, dist, mtx)
 imshape = image.shape
