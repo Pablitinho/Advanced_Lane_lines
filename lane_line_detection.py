@@ -122,17 +122,8 @@ def find_window_centroids(image, window_width, window_height, margin):
     return window_centroids
 
 # ------------------------------------------------------------------------------------
-def findLines(image, nwindows=9, margin=110, minpix=50):
-    """
-    Find the polynomial representation of the lines in the `image` using:
-    - `nwindows` as the number of windows.
-    - `margin` as the windows margin.
-    - `minpix` as minimum number of pixes found to recenter the window.
-    - `ym_per_pix` meters per pixel on Y.
-    - `xm_per_pix` meters per pixels on X.
+def detect_lines(image, nwindows=9, margin=110, minpix=50):
 
-    Returns (left_fit, right_fit, left_lane_inds, right_lane_inds, out_img, nonzerox, nonzeroy)
-    """
     ym_per_pix = 30 / 720  # meters per pixel in y dimension
     xm_per_pix = 3.7 / 700  # meters per pixel in x dimension
     # Make a binary and transform image
@@ -208,27 +199,47 @@ def findLines(image, nwindows=9, margin=110, minpix=50):
 
     return (left_fit, right_fit, left_fit_m, right_fit_m, left_lane_inds, right_lane_inds, out_img, nonzerox, nonzeroy)
 # ------------------------------------------------------------------------------------
-def showLaneOnImages(image, cols = 2, rows = 3, figsize=(15,13)):
-    """
-    Display `images` on a [`cols`, `rows`] subplot grid.
-    Returns a collection with the image paths and the left and right polynomials.
-    """
+def showLaneOnImages(image, image_original, H_inv, cols = 2, rows = 3, figsize=(15,13)):
+
     #fig, axes = plt.subplots(1, 1, figsize=figsize)
     indexes = range(cols * rows)
     imageAndFit = []
     #ax = axes.flat
 
-    left_fit, right_fit, left_fit_m, right_fit_m = visualizeLanes(image, plt)
+    left_fit, right_fit, left_fit_m, right_fit_m = visualizeLanes(image, image_original, H_inv,)
     #plt.axis('off')
     imageAndFit.append((left_fit, right_fit, left_fit_m, right_fit_m ) )
 
     return imageAndFit
-def visualizeLanes(image, ax):
+# ----------------------------------------------------------------------------------------------------------------
+def drawLine(img, left_fit, right_fit, Minv):
     """
-    Visualize the windows and fitted lines for `image`.
-    Returns (`left_fit` and `right_fit`)
+    Draw the lane lines on the image `img` using the poly `left_fit` and `right_fit`.
     """
-    left_fit, right_fit, left_fit_m, right_fit_m, left_lane_inds, right_lane_inds, out_img, nonzerox, nonzeroy = findLines(image)
+    yMax = img.shape[0]
+    ploty = np.linspace(0, yMax - 1, yMax)
+    color_warp = np.zeros_like(img).astype(np.uint8)
+
+    # Calculate points.
+    left_fitx = left_fit[0] * ploty ** 2 + left_fit[1] * ploty + left_fit[2]
+    right_fitx = right_fit[0] * ploty ** 2 + right_fit[1] * ploty + right_fit[2]
+
+    # Recast the x and y points into usable format for cv2.fillPoly()
+    pts_left = np.array([np.transpose(np.vstack([left_fitx, ploty]))])
+    pts_right = np.array([np.flipud(np.transpose(np.vstack([right_fitx, ploty])))])
+    pts = np.hstack((pts_left, pts_right))
+
+    # Draw the lane onto the warped blank image
+    cv2.fillPoly(color_warp, np.int_([pts]), (0, 255, 0))
+
+    # Warp the blank back to original image space using inverse perspective matrix (Minv)
+    newwarp = cv2.warpPerspective(color_warp, Minv, (img.shape[1], img.shape[0]))
+    return cv2.addWeighted(img, 1, newwarp, 0.3, 0)
+# ----------------------------------------------------------------------------------------------------------------
+def visualizeLanes(image, image_original, Inv_H):
+
+    #detect lines
+    left_fit, right_fit, left_fit_m, right_fit_m, left_lane_inds, right_lane_inds, out_img, nonzerox, nonzeroy = detect_lines(image)
     # Visualization
     ploty = np.linspace(0, image.shape[0]-1, image.shape[0] )
     left_fitx = left_fit[0]*ploty**2 + left_fit[1]*ploty + left_fit[2]
@@ -236,11 +247,32 @@ def visualizeLanes(image, ax):
 
     out_img[nonzeroy[left_lane_inds], nonzerox[left_lane_inds]] = [255, 0, 0]
     out_img[nonzeroy[right_lane_inds], nonzerox[right_lane_inds]] = [0, 0, 255]
-    ax.imshow(out_img)
-    ax.plot(left_fitx, ploty, color='yellow')
-    ax.plot(right_fitx, ploty, color='yellow')
-    ax.pause(0.05)
-    ax.clf()
+    plt.imshow(out_img)
+    plt.plot(left_fitx, ploty, color='yellow')
+    plt.plot(right_fitx, ploty, color='yellow')
+    plt.pause(0.05)
+    plt.clf()
+
+    # point_0 = np.squeeze(np.array(np.matrix([left_fitx[0], ploty[0], 1]) * np.matrix(Inv_H)),0)
+    # #point_0_2d = [np.int32(point_0[0]/point_0[2]), np.int32(point_0[1]/point_0[2])]
+    # point_0_2d = [np.int32(point_0[0]), np.int32(point_0[1])]
+    # for id_x in range(1, len(left_fitx)):
+    #     point_1 = np.squeeze(np.array([left_fitx[id_x], ploty[id_x], 1] * np.matrix(Inv_H)))
+    #     #point_1_2d = [np.int32(point_1[0]/point_1[2]), np.int32(point_1[1]/point_1[2])]
+    #     point_1_2d = [np.int32(point_1[0]), np.int32(point_1[1])]
+    #
+    #     cv2.line(image_original,(point_0_2d[0],point_0_2d[1]),(point_1_2d[0],point_1_2d[1]),(255,0,0),2)
+    #     point_0_2d = point_1_2d
+    #     print(point_0_2d)
+    #
+    #
+    # cv2.imshow("Original Image", image_original)
+    # cv2.waitKey(0)
+
+    im = drawLine(image_original, left_fit, right_fit, Inv_H)
+    cv2.imshow("Original Image", im)
+    cv2.waitKey(10)
+
     return ( left_fit, right_fit, left_fit_m, right_fit_m )
 
 def get_road_features(s_channel):
@@ -446,80 +478,50 @@ if (cap.isOpened()== False):
   exit(-1)
 while(cap.isOpened()):
     ret, image = cap.read()
-
-    #image = cv2.imread(path +'test' + str(idx) + '.jpg')
+    # ------------------------------------------------------------------------------------
+    # Undistort the image
+    # ------------------------------------------------------------------------------------
     image = undistort_image(image, dist, mtx)
+
+    # ------------------------------------------------------------------------------------
+    # Remove noise and smooth the signal
+    # ------------------------------------------------------------------------------------
     g_kernel = cv2.getGaussianKernel(7, 3)
     image = cv2.filter2D(image, -1, g_kernel)
 
-    imshape = image.shape
-    # cv2.imshow("image hls_binary", image)
-    # cv2.waitKey(0)
-
-    hls_binary, s_channel = hls_segmentation(image, thresh=(80, 255))
-    gradient_binary = gradient_segmentation(image, thresh=(30, 200))
-    img_segmentation = combine_segmentations(gradient_binary, hls_binary)*255
-
+    # ------------------------------------------------------------------------------------
+    # Combine the color spaces Saturation and Gray Scale (Yellow and white)
+    # ------------------------------------------------------------------------------------
+    hls = cv2.cvtColor(image, cv2.COLOR_RGB2HLS)
+    s_channel = hls[:, :, 2]
     s_channel = np.float32(s_channel)
-
-    gray2 = cv2.cvtColor(image,cv2.COLOR_RGB2GRAY)
-    gray = (np.float32(image[:, :, 0]) + np.float32(image[:, :, 1]) + np.float32(image[:, :, 2]))/3
-    yellow_image= ((255 -np.float32( image[:, :, 0]) + np.float32(image[:, :, 1]) + np.float32(image[:, :, 2]))/3)
-    #img_segmentation = (img_segmentation+yellow_image*4)
-    #img_augmented = (np.float32(gray)+np.float32(s_channel))
-    img_augmented = np.float32((np.float32(gray2)+np.float32(s_channel)))
-    # cv2.imshow("image segmentation",  np.uint8(img_segmentation))
-    # cv2.waitKey(0)
-    #img_segmentation= hls_binary*255
-    # cv2.imshow("image hls_binary", hls_binary*255)
-    # cv2.waitKey(0)
-    # cv2.imshow("image gradient_binary", gradient_binary*255)
-    # cv2.waitKey(0)
-    # cv2.imshow("image segmentation", img_segmentation)
+    gray2 = cv2.cvtColor(image, cv2.COLOR_RGB2GRAY)
+    map_of_attention = np.float32((np.float32(gray2)+np.float32(s_channel)))
+    # cv2.imshow("image",img_augmented/1000)
     # cv2.waitKey(0)
     # ------------------------------------------------------------------------------------
-    ipm_img, H, H_inv = ipm_image_proc(img_augmented, roi)
-
-    # cv2.line(img_augmented,(0,500),(img_augmented.shape[1],500),(255,0,0))
-    # cv2.imshow("ipm", np.uint8(img_augmented))
-    # cv2.waitKey(0)
-    #
-
-    import pylab
-    # x = range(img_augmented.shape[1])
-    # y = []
-    #
-    # y = np.float32(gray[499,:])
-    # print(y)
-    # plt.plot(x, y)
-    # plt.show()
-    # ipm_img_image, H, H_inv = ipm_image_proc(image[:,:,1], roi)
-
+    # Compute Birdeye view (IPM)
+    # ------------------------------------------------------------------------------------
+    ipm_img, H, H_inv = ipm_image_proc(map_of_attention, roi)
+    # ------------------------------------------------------------------------------------
+    # Get road features, Road_Features. Get the features by mean of Sobel x and detect the zero cross
+    # ------------------------------------------------------------------------------------
     road_features = get_road_features(ipm_img)
-    #ipm_img = img_segmentation
+
+    # ------------------------------------------------------------------------------------
+    # Temporal feature
+    # ------------------------------------------------------------------------------------
     if first_time == True:
         first_time=False
         road_features_integral= road_features
 
     alfa = 0.2
     road_features_integral=road_features_integral*(1-alfa)+road_features*alfa
-    #road_features_integral = ipm_img * (1 - alfa) + ipm_img * alfa
 
     road_features_integral[(road_features_integral < 40)] = 0
     road_features_integral[(road_features_integral > 255)] = 255
+    # ------------------------------------------------------------------------------------
 
-    # cv2.imshow("ipm", np.uint8(road_features_integral))
-    # cv2.waitKey(20)
-    # -------------------------------------------------------------------
-    # cv2.imshow("image ipm_img", np.uint8(ipm_img_image))
-    # cv2.waitKey(0)
-
-    window_centroids = find_window_centroids(ipm_img, window_width, window_height, margin)
-
-    #plot_lane_dots(np.uint8(road_features_integral), window_centroids, window_width, window_height)
-
-    #left_fit, right_fit, x_left, x_right = generate_polynom(np.uint8(road_features_integral), window_centroids)
-
-    imagesPoly = showLaneOnImages(np.uint8(road_features_integral))
+    imagesPoly = showLaneOnImages(np.uint8(road_features_integral), image, H_inv)
 
 

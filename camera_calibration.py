@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 def load_images(path,num_images):
 
     image_list = []
-    for idx in range(1,num_images):
+    for idx in range(1, num_images):
         #image = np.asarray(Image.open(path+str(idx)+'.jpg')
         image = np.asarray(cv2.imread(path + str(idx) + '.jpg'))
         image_list.append(image)
@@ -42,11 +42,20 @@ for idx in range(image_list.shape[0]):
 ret, mtx, dist, rvecs, tvecs = cv2.calibrateCamera(obj_points, img_points, gray.shape[::-1], None, None)
 
 # Undistort an image
-img_undistort = cv2.undistort(image_list[0], mtx, dist, None, mtx)
+# img_undistort = cv2.undistort(image_list[0], mtx, dist, None, mtx)
+# f, axarr = plt.subplots(1,2)
+# axarr[0].imshow(image_list[0])
+# axarr[1].imshow(img_undistort)
+# plt.show()
+
+image = (cv2.imread('./test_images/test6.jpg'))
+gray = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+img_undistort = cv2.undistort(gray, mtx, dist, None, mtx)
 f, axarr = plt.subplots(1,2)
-axarr[0].imshow(image_list[0])
+axarr[0].imshow(gray)
 axarr[1].imshow(img_undistort)
 plt.show()
+
 
 # Save the information of the intrinsic camera calibration
 if ret:
