@@ -29,9 +29,11 @@ The goals / steps of this project are the following:
 [image9]: ./output_images/binary_segmentation.jpg "IPM"
 [image10]: ./output_images/Lane_detection_diagram.png "Lane Detection Flow"
 [image11]: ./output_images/accumulation.png "Accumulation"
+[image12]: ./output_images/line_fitting.png "Line Fitting"
+[image13]: ./output_images/Example_lane.png "Lane detection example"
 
 
-[video1]: ./project_video.mp4 "Video"
+[video1]: ./output.avi "Video"
 
 ## [Rubric](https://review.udacity.com/#!/rubrics/571/view) Points
 
@@ -136,19 +138,33 @@ At first the Y position where are the lines must be identified. To find the y po
 
 Once that we have the accumulation, we look from the middle to the left and the middle to the right the high value to search the shape of the line. For the left and right candidate position we generate blocks and estimate the median value positions. Once it is estimated the median position value, we create another block on the top of the other one and compute the median value, and so on... In this way we will get a position of each block always that there are a minimum number of pixels within the block. 
 
-At this point we are able to compute the line by mean of the polynomial of second order.
+At this point we are able to compute the line by mean of a polynomial of second order. One example of the line fitting of the left and right line is shown below:
+
+![alt text][image12]
 
 
 #### 5. Describe how (and identify where in your code) you calculated the radius of curvature of the lane and the position of the vehicle with respect to center.
 
-I did this in lines # through # in my code in `my_other_file.py`
+To determinate the radius of the curvature I was following the "Measuring module in this project" and I did the estimation as follow:
+
+    ym_per_pix = 30 / 720  # meters per pixel in y dimension
+    xm_per_pix = 3.7 / 700  # meters per pixel in x dimension
+    left_fit_m = np.polyfit(lefty * ym_per_pix, leftx * xm_per_pix, 2)
+    right_fit_m = np.polyfit(righty * ym_per_pix, rightx * xm_per_pix, 2)
+
+    left_curverad = ((1 + (2 * left_fit_m[0] * y_eval * ym_per_pix + left_fit_m[1]) ** 2) ** 1.5) / np.absolute(
+        2 * left_fit_m[0])
+    right_curverad = ((1 + (2 * right_fit_m[0] * y_eval * ym_per_pix + right_fit_m[1]) ** 2) ** 1.5) / np.absolute(
+        2 * right_fit_m[0])
+
+    print(left_curverad, right_curverad)
 
 #### 6. Provide an example image of your result plotted back down onto the road such that the lane area is identified clearly.
 
 
-I implemented this step in lines # through # in my code in `yet_another_file.py` in the function `map_lane()`.  Here is an example of my result on a test image:
+I implemented this step with a function called draw_lane(). Here is an example of the output
 
-![alt text][image6]
+![alt text][image13]
 
 ---
 
@@ -156,8 +172,9 @@ I implemented this step in lines # through # in my code in `yet_another_file.py`
 
 #### 1. Provide a link to your final video output.  Your pipeline should perform reasonably well on the entire project video (wobbly lines are ok but no catastrophic failures that would cause the car to drive off the road!).
 
+![alt text][video1]
 
-Here's a [link to my video result](./project_video.mp4)
+Here's a [link to my video result](./output.mp4)
 
 ---
 

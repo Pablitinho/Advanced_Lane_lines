@@ -4,6 +4,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
 import glob
+import imageio as imio
 # ------------------------------------------------------------------------------------
 def hls_segmentation(img, thresh=(0, 255)):
     # 1) Convert to HLS color space
@@ -129,7 +130,7 @@ def detect_lines(image, nwindows=9, margin=80, minpix=50):
     binary_warped = image
 
     # Compute the accumulation of the white pixels per each column
-    histogram = np.sum(binary_warped[binary_warped.shape[0] // 2:, :], axis=0)
+    Accumulator = np.sum(binary_warped[binary_warped.shape[0] // 2:, :], axis=0)
     # plt.plot(range(histogram.shape[0]),histogram, color='green')
     # plt.show()
 
@@ -137,9 +138,9 @@ def detect_lines(image, nwindows=9, margin=80, minpix=50):
     out_img = np.dstack((binary_warped, binary_warped, binary_warped)) * 255
     # Find the peak of the left and right halves of the histogram
     # These will be the starting point for the left and right lines
-    midpoint = np.int(histogram.shape[0] / 2)
-    leftx_base = np.argmax(histogram[:midpoint])
-    rightx_base = np.argmax(histogram[midpoint:]) + midpoint
+    midpoint = np.int(Accumulator.shape[0] / 2)
+    leftx_base = np.argmax(Accumulator[:midpoint])
+    rightx_base = np.argmax(Accumulator[midpoint:]) + midpoint
 
     # Set height of windows
     window_height = np.int(binary_warped.shape[0] / nwindows)
@@ -169,17 +170,12 @@ def detect_lines(image, nwindows=9, margin=80, minpix=50):
 
         win_xright_low = rightx_current - margin
         win_xright_high = rightx_current + margin
-        # Draw the windows on the visualization image
-        cv2.rectangle(out_img, (win_x_left_bottom, window_y_bottom), (win_x_left_up, windown_y_up), (255, 255, 0), 2)
-        cv2.rectangle(out_img, (win_xright_low, window_y_bottom), (win_xright_high, windown_y_up), (255, 255, 0), 2)
+
         # Identify the nonzero pixels in x and y within the window
         good_left_inds = ((nonzeroy >= window_y_bottom) & (nonzeroy < windown_y_up) & (nonzerox >= win_x_left_bottom) & (
         nonzerox < win_x_left_up)).nonzero()[0]
         good_right_inds = ((nonzeroy >= window_y_bottom) & (nonzeroy < windown_y_up) & (nonzerox >= win_xright_low) & (
         nonzerox < win_xright_high)).nonzero()[0]
-        # Append these indices to the lists
-        left_lane_inds.append(good_left_inds)
-        right_lane_inds.append(good_right_inds)
 
         # If you found > minpix pixels, recenter next window on their mean position
         if len(good_left_inds) > minpix:
@@ -189,15 +185,6 @@ def detect_lines(image, nwindows=9, margin=80, minpix=50):
             rightx_current = np.int(np.median(nonzerox[good_right_inds]))
             right_lane_pos.append([rightx_current, (windown_y_up + window_y_bottom) / 2])
 
-    # Concatenate the arrays of indices
-    left_lane_inds = np.concatenate(left_lane_inds)
-    right_lane_inds = np.concatenate(right_lane_inds)
-    # Extract left and right line pixel positions
-    leftx = nonzerox[left_lane_inds]
-    lefty = nonzeroy[left_lane_inds]
-    rightx = nonzerox[right_lane_inds]
-    righty = nonzeroy[right_lane_inds]
-
     # Fit a second order polynomial to each
     left_lane_pos = np.array(left_lane_pos)
     right_lane_pos = np.array(right_lane_pos)
@@ -205,20 +192,14 @@ def detect_lines(image, nwindows=9, margin=80, minpix=50):
     left_fit = np.polyfit(left_lane_pos[:,1], left_lane_pos[:,0], 2)
     right_fit = np.polyfit(right_lane_pos[:,1], right_lane_pos[:,0], 2)
 
-    # New one
-    #left_fit = np.polyfit(lefty, leftx, 2)
-    #right_fit = np.polyfit(righty, rightx, 2)
-
-    # Estimation of the Curvature in Meters
-    # Fit a second order polynomial to each
 
     ploty = np.linspace(0, 719, num=720)
     y_eval = np.max(ploty)
 
     ym_per_pix = 30 / 720  # meters per pixel in y dimension
     xm_per_pix = 3.7 / 700  # meters per pixel in x dimension
-    left_fit_m = np.polyfit(lefty * ym_per_pix, leftx * xm_per_pix, 2)
-    right_fit_m = np.polyfit(righty * ym_per_pix, rightx * xm_per_pix, 2)
+    left_fit_m = np.polyfit(left_lane_pos[:,1] * ym_per_pix, left_lane_pos[:,0] * xm_per_pix, 2)
+    right_fit_m = np.polyfit(right_lane_pos[:,1] * ym_per_pix, right_lane_pos[:,0] * xm_per_pix, 2)
 
     left_curverad = ((1 + (2 * left_fit_m[0] * y_eval * ym_per_pix + left_fit_m[1]) ** 2) ** 1.5) / np.absolute(
         2 * left_fit_m[0])
@@ -227,25 +208,10 @@ def detect_lines(image, nwindows=9, margin=80, minpix=50):
 
     print(left_curverad, right_curverad)
 
-    return (left_fit, right_fit, left_fit_m, right_fit_m, left_lane_inds, right_lane_inds, out_img, nonzerox, nonzeroy)
+    return left_fit, right_fit, left_curverad, right_curverad
 # ------------------------------------------------------------------------------------
-def showLaneOnImages(image, image_original, H_inv, cols = 2, rows = 3, figsize=(15,13)):
+def draw_lane(img, left_fit, right_fit, Minv):
 
-    #fig, axes = plt.subplots(1, 1, figsize=figsize)
-    indexes = range(cols * rows)
-    imageAndFit = []
-    #ax = axes.flat
-
-    left_fit, right_fit, left_fit_m, right_fit_m = visualizeLanes(image, image_original, H_inv,)
-    #plt.axis('off')
-    imageAndFit.append((left_fit, right_fit, left_fit_m, right_fit_m ) )
-
-    return imageAndFit
-# ----------------------------------------------------------------------------------------------------------------
-def drawLine(img, left_fit, right_fit, Minv):
-    """
-    Draw the lane lines on the image `img` using the poly `left_fit` and `right_fit`.
-    """
     yMax = img.shape[0]
     ploty = np.linspace(0, yMax - 1, yMax)
     color_warp = np.zeros_like(img).astype(np.uint8)
@@ -263,47 +229,38 @@ def drawLine(img, left_fit, right_fit, Minv):
     cv2.fillPoly(color_warp, np.int_([pts]), (0, 255, 0))
 
     # Warp the blank back to original image space using inverse perspective matrix (Minv)
-    newwarp = cv2.warpPerspective(color_warp, Minv, (img.shape[1], img.shape[0]))
-    return cv2.addWeighted(img, 1, newwarp, 0.3, 0)
+    warped_lane = cv2.warpPerspective(color_warp, Minv, (img.shape[1], img.shape[0]))
+    return cv2.addWeighted(img, 1, warped_lane, 0.3, 0)
 # ----------------------------------------------------------------------------------------------------------------
-def visualizeLanes(image, image_original, Inv_H):
+def detect_lane(image, left_fit_temporal,right_fit_temporal,first_time):
 
     # Get the detected lines
-    left_fit, right_fit, left_fit_m, right_fit_m, left_lane_inds, right_lane_inds, out_img, nonzerox, nonzeroy = detect_lines(image)
+    left_fit, right_fit,left_curverad, right_curverad = detect_lines(image)
+
+    alfa = 0.3
+    if first_time:
+       left_fit_temporal = left_fit
+       right_fit_temporal = right_fit
+    else:
+       left_fit_temporal = left_fit_temporal * (1 - alfa) + left_fit * alfa
+       right_fit_temporal = right_fit_temporal * (1 - alfa) + right_fit * alfa
+
     # Visualization
-    ploty = np.linspace(0, image.shape[0]-1, image.shape[0] )
-    left_fitx = left_fit[0]*ploty**2 + left_fit[1]*ploty + left_fit[2]
-    right_fitx = right_fit[0]*ploty**2 + right_fit[1]*ploty + right_fit[2]
+    #ploty = np.linspace(0, image.shape[0]-1, image.shape[0])
+    #left_fitx = left_fit[0]*ploty**2 + left_fit[1]*ploty + left_fit[2]
+    #right_fitx = right_fit[0]*ploty**2 + right_fit[1]*ploty + right_fit[2]
 
-    out_img[nonzeroy[left_lane_inds], nonzerox[left_lane_inds]] = [255, 0, 0]
-    out_img[nonzeroy[right_lane_inds], nonzerox[right_lane_inds]] = [0, 0, 255]
-    plt.imshow(out_img)
-    plt.plot(left_fitx, ploty, color='white')
-    plt.plot(right_fitx, ploty, color='white')
-    plt.pause(0.05)
-    plt.clf()
+    #out_img[nonzeroy[left_lane_inds], nonzerox[left_lane_inds]] = [255, 100, 0]
+    #out_img[nonzeroy[right_lane_inds], nonzerox[right_lane_inds]] = [255, 255, 0]
+    # plt.imshow(out_img)
+    # plt.plot(left_fitx, ploty, color='white')
+    # plt.plot(right_fitx, ploty, color='white')
+    # plt.pause(0.05)
+    # plt.clf()
 
-    # point_0 = np.squeeze(np.array(np.matrix([left_fitx[0], ploty[0], 1]) * np.matrix(Inv_H)),0)
-    # #point_0_2d = [np.int32(point_0[0]/point_0[2]), np.int32(point_0[1]/point_0[2])]
-    # point_0_2d = [np.int32(point_0[0]), np.int32(point_0[1])]
-    # for id_x in range(1, len(left_fitx)):
-    #     point_1 = np.squeeze(np.array([left_fitx[id_x], ploty[id_x], 1] * np.matrix(Inv_H)))
-    #     #point_1_2d = [np.int32(point_1[0]/point_1[2]), np.int32(point_1[1]/point_1[2])]
-    #     point_1_2d = [np.int32(point_1[0]), np.int32(point_1[1])]
-    #
-    #     cv2.line(image_original,(point_0_2d[0],point_0_2d[1]),(point_1_2d[0],point_1_2d[1]),(255,0,0),2)
-    #     point_0_2d = point_1_2d
-    #     print(point_0_2d)
-    #
-    #
-    # cv2.imshow("Original Image", image_original)
-    # cv2.waitKey(0)
 
-    im = drawLine(image_original, left_fit, right_fit, Inv_H)
-    cv2.imshow("Original Image", im)
-    cv2.waitKey(10)
 
-    return ( left_fit, right_fit, left_fit_m, right_fit_m )
+    return left_fit_temporal, right_fit_temporal,left_curverad, right_curverad
 
 def get_road_features(s_channel):
 
@@ -463,6 +420,10 @@ def generate_polynom(road_features, window_centroids):
 window_width = 50
 window_height = 50  # Break image into 9 vertical layers since image height is 720
 margin = 100 # How much to slide left and right for searching
+left_fit_temporal = []
+right_fit_temporal=[]
+first_time_line = True
+
 # ------------------------------------------------------------------------------------
 # IPM (Inverse Perspective Mapping) Parameters
 # ------------------------------------------------------------------------------------
@@ -506,7 +467,18 @@ first_time = True
 if (cap.isOpened()== False):
   print("Error opening video file")
   exit(-1)
+# cnt=0
+# imio.plugins.ffmpeg.download()
+# size = (int(1280), int(720))
+# fourcc = cv2.VideoWriter_fourcc(*'XVID')  # 'x264' doesn't work
+# out_video = cv2.VideoWriter('./output.avi', fourcc, 20.0, size, True)  # 'False' for 1-ch instead of 3-ch for color
+
+#out_video = cv2.VideoWriter('./output.avi', -1, 30.0, size)
+#
+# fourcc = cv2.cv.CV_FOURCC(*'X264')
+# out = cv2.VideoWriter(FILE_OUTPUT,fourcc, 20.0, (int(width),int(height)))
 while(cap.isOpened()):
+
     ret, image = cap.read()
     # ------------------------------------------------------------------------------------
     # Undistort the image
@@ -543,16 +515,24 @@ while(cap.isOpened()):
     # Temporal feature
     # ------------------------------------------------------------------------------------
     if first_time == True:
-        first_time=False
+        first_time = False
         road_features_integral= road_features
 
     alfa = 0.2
-    road_features_integral=road_features_integral*(1-alfa)+road_features*alfa
+    road_features_integral= road_features_integral*(1-alfa)+road_features*alfa
 
     road_features_integral[(road_features_integral < 40)] = 0
     road_features_integral[(road_features_integral > 255)] = 255
     # ------------------------------------------------------------------------------------
-
-    imagesPoly = showLaneOnImages(np.uint8(road_features_integral), image, H_inv)
-
-
+    # Detect lane
+    # ------------------------------------------------------------------------------------
+    left_fit_temporal, right_fit_temporal = detect_lane(np.uint8(road_features_integral), left_fit_temporal,
+                                                        right_fit_temporal, first_time_line)
+    first_time_line = False
+    # ------------------------------------------------------------------------------------
+    # Detect lane
+    # ------------------------------------------------------------------------------------
+    im = draw_lane(image, left_fit_temporal, right_fit_temporal, H_inv)
+    cv2.imshow("Lane detection", im)
+    cv2.waitKey(10)
+    #out_video.write(im)
