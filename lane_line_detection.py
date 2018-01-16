@@ -122,14 +122,16 @@ def find_window_centroids(image, window_width, window_height, margin):
     return window_centroids
 
 # ------------------------------------------------------------------------------------
-def detect_lines(image, nwindows=9, margin=110, minpix=50):
+def detect_lines(image, nwindows=9, margin=80, minpix=50):
 
-    ym_per_pix = 30 / 720  # meters per pixel in y dimension
-    xm_per_pix = 3.7 / 700  # meters per pixel in x dimension
+
     # Make a binary and transform image
     binary_warped = image
-    # Take a histogram of the bottom half of the image
+
+    # Compute the accumulation of the white pixels per each column
     histogram = np.sum(binary_warped[binary_warped.shape[0] // 2:, :], axis=0)
+    # plt.plot(range(histogram.shape[0]),histogram, color='green')
+    # plt.show()
 
     # Create an output image to draw on and  visualize the result
     out_img = np.dstack((binary_warped, binary_warped, binary_warped)) * 255
@@ -154,31 +156,38 @@ def detect_lines(image, nwindows=9, margin=110, minpix=50):
     left_lane_inds = []
     right_lane_inds = []
 
+    # List with the position of each block. If the block is empty, it will not be included into the list
+    left_lane_pos = []
+    right_lane_pos = []
     # Step through the windows one by one
     for window in range(nwindows):
-        # Identify window boundaries in x and y (and right and left)
-        win_y_low = binary_warped.shape[0] - (window + 1) * window_height
-        win_y_high = binary_warped.shape[0] - window * window_height
-        win_xleft_low = leftx_current - margin
-        win_xleft_high = leftx_current + margin
+        # Generate the block position and dimension
+        window_y_bottom = binary_warped.shape[0] - (window + 1) * window_height
+        windown_y_up = binary_warped.shape[0] - window * window_height
+        win_x_left_bottom = leftx_current - margin
+        win_x_left_up = leftx_current + margin
+
         win_xright_low = rightx_current - margin
         win_xright_high = rightx_current + margin
         # Draw the windows on the visualization image
-        cv2.rectangle(out_img, (win_xleft_low, win_y_low), (win_xleft_high, win_y_high), (0, 255, 0), 2)
-        cv2.rectangle(out_img, (win_xright_low, win_y_low), (win_xright_high, win_y_high), (0, 255, 0), 2)
+        cv2.rectangle(out_img, (win_x_left_bottom, window_y_bottom), (win_x_left_up, windown_y_up), (255, 255, 0), 2)
+        cv2.rectangle(out_img, (win_xright_low, window_y_bottom), (win_xright_high, windown_y_up), (255, 255, 0), 2)
         # Identify the nonzero pixels in x and y within the window
-        good_left_inds = ((nonzeroy >= win_y_low) & (nonzeroy < win_y_high) & (nonzerox >= win_xleft_low) & (
-        nonzerox < win_xleft_high)).nonzero()[0]
-        good_right_inds = ((nonzeroy >= win_y_low) & (nonzeroy < win_y_high) & (nonzerox >= win_xright_low) & (
+        good_left_inds = ((nonzeroy >= window_y_bottom) & (nonzeroy < windown_y_up) & (nonzerox >= win_x_left_bottom) & (
+        nonzerox < win_x_left_up)).nonzero()[0]
+        good_right_inds = ((nonzeroy >= window_y_bottom) & (nonzeroy < windown_y_up) & (nonzerox >= win_xright_low) & (
         nonzerox < win_xright_high)).nonzero()[0]
         # Append these indices to the lists
         left_lane_inds.append(good_left_inds)
         right_lane_inds.append(good_right_inds)
+
         # If you found > minpix pixels, recenter next window on their mean position
         if len(good_left_inds) > minpix:
             leftx_current = np.int(np.median(nonzerox[good_left_inds]))
+            left_lane_pos.append([leftx_current, (windown_y_up+window_y_bottom)/2])
         if len(good_right_inds) > minpix:
             rightx_current = np.int(np.median(nonzerox[good_right_inds]))
+            right_lane_pos.append([rightx_current, (windown_y_up + window_y_bottom) / 2])
 
     # Concatenate the arrays of indices
     left_lane_inds = np.concatenate(left_lane_inds)
@@ -190,12 +199,33 @@ def detect_lines(image, nwindows=9, margin=110, minpix=50):
     righty = nonzeroy[right_lane_inds]
 
     # Fit a second order polynomial to each
-    left_fit = np.polyfit(lefty, leftx, 2)
-    right_fit = np.polyfit(righty, rightx, 2)
+    left_lane_pos = np.array(left_lane_pos)
+    right_lane_pos = np.array(right_lane_pos)
 
+    left_fit = np.polyfit(left_lane_pos[:,1], left_lane_pos[:,0], 2)
+    right_fit = np.polyfit(right_lane_pos[:,1], right_lane_pos[:,0], 2)
+
+    # New one
+    #left_fit = np.polyfit(lefty, leftx, 2)
+    #right_fit = np.polyfit(righty, rightx, 2)
+
+    # Estimation of the Curvature in Meters
     # Fit a second order polynomial to each
+
+    ploty = np.linspace(0, 719, num=720)
+    y_eval = np.max(ploty)
+
+    ym_per_pix = 30 / 720  # meters per pixel in y dimension
+    xm_per_pix = 3.7 / 700  # meters per pixel in x dimension
     left_fit_m = np.polyfit(lefty * ym_per_pix, leftx * xm_per_pix, 2)
     right_fit_m = np.polyfit(righty * ym_per_pix, rightx * xm_per_pix, 2)
+
+    left_curverad = ((1 + (2 * left_fit_m[0] * y_eval * ym_per_pix + left_fit_m[1]) ** 2) ** 1.5) / np.absolute(
+        2 * left_fit_m[0])
+    right_curverad = ((1 + (2 * right_fit_m[0] * y_eval * ym_per_pix + right_fit_m[1]) ** 2) ** 1.5) / np.absolute(
+        2 * right_fit_m[0])
+
+    print(left_curverad, right_curverad)
 
     return (left_fit, right_fit, left_fit_m, right_fit_m, left_lane_inds, right_lane_inds, out_img, nonzerox, nonzeroy)
 # ------------------------------------------------------------------------------------
@@ -238,7 +268,7 @@ def drawLine(img, left_fit, right_fit, Minv):
 # ----------------------------------------------------------------------------------------------------------------
 def visualizeLanes(image, image_original, Inv_H):
 
-    #detect lines
+    # Get the detected lines
     left_fit, right_fit, left_fit_m, right_fit_m, left_lane_inds, right_lane_inds, out_img, nonzerox, nonzeroy = detect_lines(image)
     # Visualization
     ploty = np.linspace(0, image.shape[0]-1, image.shape[0] )
@@ -248,8 +278,8 @@ def visualizeLanes(image, image_original, Inv_H):
     out_img[nonzeroy[left_lane_inds], nonzerox[left_lane_inds]] = [255, 0, 0]
     out_img[nonzeroy[right_lane_inds], nonzerox[right_lane_inds]] = [0, 0, 255]
     plt.imshow(out_img)
-    plt.plot(left_fitx, ploty, color='yellow')
-    plt.plot(right_fitx, ploty, color='yellow')
+    plt.plot(left_fitx, ploty, color='white')
+    plt.plot(right_fitx, ploty, color='white')
     plt.pause(0.05)
     plt.clf()
 
@@ -400,7 +430,7 @@ def generate_polynom(road_features, window_centroids):
            y_right.append(max(0, int(window_centroids[level][1] - (window_height / 2) + window_width)))
            x_right.append(int(road_features.shape[1] - (level + 1) * window_height))
 
-    left_fit  = np.polyfit(x_left, y_left, 2)
+    left_fit = np.polyfit(x_left, y_left, 2)
     right_fit = np.polyfit(x_right, y_right, 2)
     x_left = np.array(x_left)
     y_left = np.array(y_left)
@@ -497,17 +527,18 @@ while(cap.isOpened()):
     s_channel = np.float32(s_channel)
     gray2 = cv2.cvtColor(image, cv2.COLOR_RGB2GRAY)
     map_of_attention = np.float32((np.float32(gray2)+np.float32(s_channel)))
-    # cv2.imshow("image",img_augmented/1000)
-    # cv2.waitKey(0)
+
     # ------------------------------------------------------------------------------------
     # Compute Birdeye view (IPM)
     # ------------------------------------------------------------------------------------
     ipm_img, H, H_inv = ipm_image_proc(map_of_attention, roi)
+
     # ------------------------------------------------------------------------------------
     # Get road features, Road_Features. Get the features by mean of Sobel x and detect the zero cross
     # ------------------------------------------------------------------------------------
     road_features = get_road_features(ipm_img)
-
+    # cv2.imshow("image", road_features)
+    # cv2.waitKey(0)
     # ------------------------------------------------------------------------------------
     # Temporal feature
     # ------------------------------------------------------------------------------------

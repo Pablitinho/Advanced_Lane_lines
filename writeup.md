@@ -24,8 +24,12 @@ The goals / steps of this project are the following:
 [image4]: ./output_images/Undistort.jpg "Undistorted image"
 [image5]: ./output_images/Undistort_road.jpg "Undistorted road"
 [image6]: ./output_images/Map_of_attention.png "Map of attention"
+[image7]: ./output_images/IPM.png "IPM"
+[image8]: ./output_images/derivate_lines_road.png "Derivate in X on the road"
+[image9]: ./output_images/binary_segmentation.jpg "IPM"
+[image10]: ./output_images/Lane_detection_diagram.png "Lane Detection Flow"
+[image11]: ./output_images/accumulation.png "Accumulation"
 
-[image6]: ./output_images/derivate_lines_road.png "Derivate in X on the road"
 
 [video1]: ./project_video.mp4 "Video"
 
@@ -61,6 +65,10 @@ We collect all the points of each board and estimate the camera intrinsic parame
 
 ### Pipeline (single images)
 
+The global pipeline is described in the figure shown below:
+
+![alt text][image10]
+
 #### 1. Provide an example of a distortion-corrected image.
 
 Below you can see how the original image (left) is distorted (right) making use of the camara parameters obtained in the previos section:
@@ -75,47 +83,68 @@ map_of_attention = Gray_scale + Saturation_channel
 The first image is the original one, the second is the smoothed one and the last one belong to the map of attention:
 ![alt text][image6]
 
+####NOTE: The binary segmentation is explained in the section 3
+
 #### 3. Describe how (and identify where in your code) you performed a perspective transform and provide an example of a transformed image.
 
-The code for my perspective transform includes a function called `warper()`, which appears in lines 1 through 8 in the file `example.py` (output_images/examples/example.py) (or, for example, in the 3rd code cell of the IPython notebook).  The `warper()` function takes as inputs an image (`img`), as well as source (`src`) and destination (`dst`) points.  I chose the hardcode the source and destination points in the following manner:
+The part of the code that transform the image into IPM (Bird-eye view) is ` ipm_image_proc()`. This function take the coordinates as show below from the image and transform into the new coordinates of the image:
+# ------------------------------------------------------------------------------------
+# IPM (Inverse Perspective Mapping) Parameters
+# ------------------------------------------------------------------------------------
+#              left_top ****** right_top
+#                          ********
+#                         **********
+#                       ************
+#                      **************
+# left_bottom **************** right_bottom
+# ------------------------------------------------------------------------------------
+To obtain the transformation matrix from the original image to the new image (IPM) we make use of this opencv function:
 
-```python
-src = np.float32(
-    [[(img_size[0] / 2) - 55, img_size[1] / 2 + 100],
-    [((img_size[0] / 6) - 10), img_size[1]],
-    [(img_size[0] * 5 / 6) + 60, img_size[1]],
-    [(img_size[0] / 2 + 55), img_size[1] / 2 + 100]])
-dst = np.float32(
-    [[(img_size[0] / 4), 0],
-    [(img_size[0] / 4), img_size[1]],
-    [(img_size[0] * 3 / 4), img_size[1]],
-    [(img_size[0] * 3 / 4), 0]])
-```
+H = cv2.getPerspectiveTransform(src, dst)
 
-This resulted in the following source and destination points:
+Where source is the points on the road in the image and destination are the corner points of the image.
 
-| Source        | Destination   | 
-|:-------------:|:-------------:| 
-| 585, 460      | 320, 0        | 
-| 203, 720      | 320, 720      |
-| 1127, 720     | 960, 720      |
-| 695, 460      | 960, 0        |
+After obtain this transformation matrix, it is possible to transform the original image to the bird-eye view by mean of opencv function: 
 
-I verified that my perspective transform was working as expected by drawing the `src` and `dst` points onto a test image and its warped counterpart to verify that the lines appear parallel in the warped image.
+warped = cv2.warpPerspective(image, H, img_out_size)
 
-![alt text][image4]
+Here it is an example of the original input to the IPM view.
+
+![alt text][image7]
+
+In this point is when we apply the binary segmentation by mean of the technique proposed in the the paper "Adaptative Road Lanes Detection and Classification" 
+
+![alt text][image8]
+
+After apply the segmentation described in this paper we obtain: 
+
+![alt text][image9]
+
+In order to get more details in the lines with no contiguous segment we applied the integration over the time as described this formular:
+
+    road_features_integral=road_features_integral*(1-alfa)+road_features*alfa
+    road_features_integral[(road_features_integral < 40)] = 0
+    road_features_integral[(road_features_integral > 255)] = 255
+
+This equation allow us to create the no contiguous segments into a one (like) single line. 
 
 #### 4. Describe how (and identify where in your code) you identified lane-line pixels and fit their positions with a polynomial?
 
-Then I did some other stuff and fit my lane lines with a 2nd order polynomial kinda like this:
+At first the Y position where are the lines must be identified. To find the y position we will accumulate the value in the Y position, as show in the image below:
 
-![alt text][image5]
+![alt text][image11]
+
+Once that we have the accumulation, we look from the middle to the left and the middle to the right the high value to search the shape of the line. For the left and right candidate position we generate blocks and estimate the median value positions. Once it is estimated the median position value, we create another block on the top of the other one and compute the median value, and so on... In this way we will get a position of each block always that there are a minimum number of pixels within the block. 
+
+At this point we are able to compute the line by mean of the polynomial of second order.
+
 
 #### 5. Describe how (and identify where in your code) you calculated the radius of curvature of the lane and the position of the vehicle with respect to center.
 
 I did this in lines # through # in my code in `my_other_file.py`
 
 #### 6. Provide an example image of your result plotted back down onto the road such that the lane area is identified clearly.
+
 
 I implemented this step in lines # through # in my code in `yet_another_file.py` in the function `map_lane()`.  Here is an example of my result on a test image:
 
@@ -126,6 +155,7 @@ I implemented this step in lines # through # in my code in `yet_another_file.py`
 ### Pipeline (video)
 
 #### 1. Provide a link to your final video output.  Your pipeline should perform reasonably well on the entire project video (wobbly lines are ok but no catastrophic failures that would cause the car to drive off the road!).
+
 
 Here's a [link to my video result](./project_video.mp4)
 
