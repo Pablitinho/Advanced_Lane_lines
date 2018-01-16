@@ -18,15 +18,15 @@ The goals / steps of this project are the following:
 
 [//]: # (Image References)
 
-[image1]: ./output_images/detection_1.jpg "Detection 1"
-[image2]: ./output_images/detection_2.jpg "Detection 2"
-[image3]: ./output_images/detection_3.jpg "Detection 3"
-[image4]: ./output_images/Undistort.jpg "Undistorted image"
-[image5]: ./output_images/Undistort_road.jpg "Undistorted road"
+[image1]: ./output_images/detection_1.JPG "Detection 1"
+[image2]: ./output_images/detection_2.JPG "Detection 2"
+[image3]: ./output_images/detection_3.JPG "Detection 3"
+[image4]: ./output_images/Undistort.JPG "Undistorted image"
+[image5]: ./output_images/Undistort_road.JPG "Undistorted road"
 [image6]: ./output_images/Map_of_attention.png "Map of attention"
 [image7]: ./output_images/IPM.png "IPM"
 [image8]: ./output_images/derivate_lines_road.png "Derivate in X on the road"
-[image9]: ./output_images/binary_segmentation.jpg "IPM"
+[image9]: ./output_images/binary_segmentation.JPG "IPM"
 [image10]: ./output_images/Lane_detection_diagram.png "Lane Detection Flow"
 [image11]: ./output_images/accumulation.png "Accumulation"
 [image12]: ./output_images/line_fitting.png "Line Fitting"
