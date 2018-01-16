@@ -25,7 +25,7 @@ The goals / steps of this project are the following:
 [image5]: ./output_images/Undistort_road.JPG "Undistorted road"
 [image6]: ./output_images/Map_of_attention.png "Map of attention"
 [image7]: ./output_images/IPM.png "IPM"
-[image8]: ./output_images/derivate_lines_road.png "Derivate in X on the road"
+[image8]: ./output_images/derivate_lines_road.PNG "Derivate in X on the road"
 [image9]: ./output_images/binary_segmentation.JPG "IPM"
 [image10]: ./output_images/Lane_detection_diagram.png "Lane Detection Flow"
 [image11]: ./output_images/accumulation.png "Accumulation"
