@@ -172,7 +172,14 @@ I implemented this step with a function called draw_lane(). Here is an example o
 
 #### 1. Provide a link to your final video output.  Your pipeline should perform reasonably well on the entire project video (wobbly lines are ok but no catastrophic failures that would cause the car to drive off the road!).
 
-![alt text][video1]
+
+<script src="http://vjs.zencdn.net/4.0/video.js"></script>
+
+<video id="pelican-installation" class="video-js vjs-default-skin" controls
+preload="auto" width="683" height="384" poster="/static/screencasts/pelican-installation.png"
+data-setup="{}">
+<source src="/output.avi" type='video/mp4'>
+</video>
 
 Here's a [link to my video result](./output.mp4)
 
