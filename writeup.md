@@ -180,4 +180,8 @@ Here's a [link to my video result](./output.avi)
 
 #### 1. Briefly discuss any problems / issues you faced in your implementation of this project.  Where will your pipeline likely fail?  What could you do to make it more robust?
 
-Here I'll talk about the approach I took, what techniques I used, what worked and why, where the pipeline might fail and how I might improve it if I were going to pursue this project further.  
+One of the main problems in this kind of detection is that the lines can take non suitable shapes, for example the left line turn to the left and the right line turn to the right. To have more stable lane detection, it could be nice use the philosophy of ASM (Active Shape Model) to train the possible shapes that the lane can have. To carry out this issue, it is needed estimate the more relevant eigen vector of the point distributions and estimate the mean. With the following equation it is possible to estimate the eigen values that define the new shape:
+
+X'=Xmean+P*b   --->    b = (X'- Xmean)*inv(P)
+
+Other point it is the stability over the time, a temporal filter is not the best solution but a Kalman Filter could help a lot to the final output.

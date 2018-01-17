@@ -107,13 +107,12 @@ def detect_lines(image, nwindows=9, margin=80, minpix=50):
     leftx_current = leftx_base
     rightx_current = rightx_base
 
-    # Create empty lists to receive left and right lane pixel indices
-    left_lane_inds = []
-    right_lane_inds = []
-
     # List with the position of each block. If the block is empty, it will not be included into the list
     left_lane_pos = []
     right_lane_pos = []
+
+    left_lane_num_points = 0
+    right_lane_num_points = 0
     # Step through the windows one by one
     for window in range(nwindows):
         # Generate the block position and dimension
@@ -135,9 +134,11 @@ def detect_lines(image, nwindows=9, margin=80, minpix=50):
         if len(good_left_inds) > minpix:
             leftx_current = np.int(np.median(nonzerox[good_left_inds]))
             left_lane_pos.append([leftx_current, (windown_y_up+window_y_bottom)/2])
+            left_lane_num_points += len(good_left_inds)
         if len(good_right_inds) > minpix:
             rightx_current = np.int(np.median(nonzerox[good_right_inds]))
             right_lane_pos.append([rightx_current, (windown_y_up + window_y_bottom) / 2])
+            right_lane_num_points += len(good_right_inds)
 
     # Fit a second order polynomial to each
     left_lane_pos = np.array(left_lane_pos)
@@ -146,23 +147,7 @@ def detect_lines(image, nwindows=9, margin=80, minpix=50):
     left_fit = np.polyfit(left_lane_pos[:,1], left_lane_pos[:,0], 2)
     right_fit = np.polyfit(right_lane_pos[:,1], right_lane_pos[:,0], 2)
 
-
-    ploty = np.linspace(0, 719, num=720)
-    y_eval = np.max(ploty)
-
-    ym_per_pix = 30 / 720  # meters per pixel in y dimension
-    xm_per_pix = 3.7 / 700  # meters per pixel in x dimension
-    left_fit_m = np.polyfit(left_lane_pos[:,1] * ym_per_pix, left_lane_pos[:,0] * xm_per_pix, 2)
-    right_fit_m = np.polyfit(right_lane_pos[:,1] * ym_per_pix, right_lane_pos[:,0] * xm_per_pix, 2)
-
-    left_curverad = ((1 + (2 * left_fit_m[0] * y_eval * ym_per_pix + left_fit_m[1]) ** 2) ** 1.5) / np.absolute(
-        2 * left_fit_m[0])
-    right_curverad = ((1 + (2 * right_fit_m[0] * y_eval * ym_per_pix + right_fit_m[1]) ** 2) ** 1.5) / np.absolute(
-        2 * right_fit_m[0])
-
-    print(left_curverad, right_curverad)
-
-    return left_fit, right_fit, left_curverad, right_curverad
+    return left_fit, right_fit, left_lane_num_points, right_lane_num_points
 # ------------------------------------------------------------------------------------
 def draw_lane(img, left_fit, right_fit, Minv):
 
@@ -186,10 +171,32 @@ def draw_lane(img, left_fit, right_fit, Minv):
     warped_lane = cv2.warpPerspective(color_warp, Minv, (img.shape[1], img.shape[0]))
     return cv2.addWeighted(img, 1, warped_lane, 0.3, 0)
 # ----------------------------------------------------------------------------------------------------------------
+def estimate_curvature(yMax, left_fit_temporal,right_fit_temporal):
+    # ----------------------------------------------------------------------
+    ploty = np.linspace(0, yMax - 1, yMax)
+    y_eval = np.max(ploty)
+
+    left_fitx = left_fit_temporal[0] * ploty ** 2 + left_fit_temporal[1] * ploty + left_fit_temporal[2]
+    right_fitx = right_fit_temporal[0] * ploty ** 2 + right_fit_temporal[1] * ploty + right_fit_temporal[2]
+
+    ym_per_pix = 30 / 720  # meters per pixel in y dimension
+    xm_per_pix = 3.7 / 700  # meters per pixel in x dimension
+
+    left_fit_m = np.polyfit(ploty * ym_per_pix, left_fitx * xm_per_pix, 2)
+    right_fit_m = np.polyfit(ploty * ym_per_pix, right_fitx * xm_per_pix, 2)
+
+    left_curverad = ((1 + (2 * left_fit_m[0] * y_eval * ym_per_pix + left_fit_m[1]) ** 2) ** 1.5) / np.absolute(
+        2 * left_fit_m[0])
+    right_curverad = ((1 + (2 * right_fit_m[0] * y_eval * ym_per_pix + right_fit_m[1]) ** 2) ** 1.5) / np.absolute(
+        2 * right_fit_m[0])
+
+    # ----------------------------------------------------------------------
+    return left_curverad, right_curverad
+# ----------------------------------------------------------------------------------------------------------------
 def detect_lane(image, left_fit_temporal,right_fit_temporal,first_time):
 
     # Get the detected lines
-    left_fit, right_fit,left_curverad, right_curverad = detect_lines(image)
+    left_fit, right_fit, left_lane_num_points, right_lane_num_points = detect_lines(image)
 
     alfa = 0.3
     if first_time:
@@ -199,7 +206,17 @@ def detect_lane(image, left_fit_temporal,right_fit_temporal,first_time):
        left_fit_temporal = left_fit_temporal * (1 - alfa) + left_fit * alfa
        right_fit_temporal = right_fit_temporal * (1 - alfa) + right_fit * alfa
 
-    return left_fit_temporal, right_fit_temporal,left_curverad, right_curverad
+    # Get the curvature of both lines
+    left_curverad, right_curverad = estimate_curvature(image.shape[0], left_fit_temporal, right_fit_temporal)
+
+    if (left_lane_num_points>right_lane_num_points):
+        curvature = left_curverad
+    else:
+        curvature = right_curverad
+
+    print(curvature)
+
+    return left_fit_temporal, right_fit_temporal, curvature
 # --------------------------------------------------------------------------------
 def get_road_features(s_channel):
 
@@ -322,14 +339,10 @@ if (cap.isOpened()== False):
   exit(-1)
 # cnt=0
 # imio.plugins.ffmpeg.download()
-# size = (int(1280), int(720))
-# fourcc = cv2.VideoWriter_fourcc(*'XVID')  # 'x264' doesn't work
-# out_video = cv2.VideoWriter('./output.avi', fourcc, 20.0, size, True)  # 'False' for 1-ch instead of 3-ch for color
+size = (int(1280), int(720))
+fourcc = cv2.VideoWriter_fourcc(*'XVID')  # 'x264' doesn't work
+out_video = cv2.VideoWriter('./output_curvature.avi', fourcc, 20.0, size, True)  # 'False' for 1-ch instead of 3-ch for color
 
-#out_video = cv2.VideoWriter('./output.avi', -1, 30.0, size)
-#
-# fourcc = cv2.cv.CV_FOURCC(*'X264')
-# out = cv2.VideoWriter(FILE_OUTPUT,fourcc, 20.0, (int(width),int(height)))
 while(cap.isOpened()):
 
     ret, image = cap.read()
@@ -379,13 +392,15 @@ while(cap.isOpened()):
     # ------------------------------------------------------------------------------------
     # Detect lane
     # ------------------------------------------------------------------------------------
-    left_fit_temporal, right_fit_temporal,left_curverad, right_curverad = detect_lane(np.uint8(road_features_integral), left_fit_temporal,
+    left_fit_temporal, right_fit_temporal, curvature = detect_lane(np.uint8(road_features_integral), left_fit_temporal,
                                                         right_fit_temporal, first_time_line)
     first_time_line = False
     # ------------------------------------------------------------------------------------
     # Detect lane
     # ------------------------------------------------------------------------------------
     im = draw_lane(image, left_fit_temporal, right_fit_temporal, H_inv)
+
+    cv2.putText(im, "Curvature:" + "{:.2f}".format(curvature), (20, 40), cv2.QT_FONT_NORMAL, 1, 255)
     cv2.imshow("Lane detection", im)
     cv2.waitKey(10)
-    #out_video.write(im)
+    out_video.write(im)
