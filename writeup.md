@@ -31,7 +31,8 @@ The goals / steps of this project are the following:
 [image11]: ./output_images/accumulation.png "Accumulation"
 [image12]: ./output_images/line_fitting.png "Line Fitting"
 [image13]: ./output_images/Example_lane.png "Lane detection example"
-
+[image14]: ./output_images/Bad_estimation.png "Bad Estimation 1"
+[image15]: ./output_images/Bad_estimation_2.png "Bad Estimation 2"
 
 [video1]: ./output.avi "Video"
 
@@ -180,8 +181,21 @@ Here's a [link to my video result](./output.avi)
 
 #### 1. Briefly discuss any problems / issues you faced in your implementation of this project.  Where will your pipeline likely fail?  What could you do to make it more robust?
 
-One of the main problems in this kind of detection is that the lines can take non suitable shapes, for example the left line turn to the left and the right line turn to the right. To have more stable lane detection, it could be nice use the philosophy of ASM (Active Shape Model) to train the possible shapes that the lane can have. To carry out this issue, it is needed estimate the more relevant eigen vector of the point distributions and estimate the mean. With the following equation it is possible to estimate the eigen values that define the new shape:
+One of the main problems in this kind of detection is that the lines can take non suitable shapes, for example the left line turn to the left and the right line turn to the right. The image below, details the problem explained before:
+
+![alt text][image14]
+
+To have more stable lane detection, it could be nice use the philosophy of ASM (Active Shape Model) to train the possible shapes that the lane can have. To carry out this issue, it is needed estimate the more relevant eigen vector of the point distributions and estimate the mean. With the following equation it is possible to estimate the eigen values that define the new shape:
 
 X'=Xmean+P*b   --->    b = (X'- Xmean)*inv(P)
 
 Other point it is the stability over the time, a temporal filter is not the best solution but a Kalman Filter could help a lot to the final output.
+
+Finally we must remark that the classical problem with the low contrast images, can provide us bad estimation because the visibility. This case can be shadows like the image below:
+
+![alt text][image15]
+
+In those cases it should be convenient to apply some image processing like equalization of the image.
+
+Another approaches can be used like deep learning, in order to detect the line in more robust way.:
+[http://openaccess.thecvf.com/content_cvpr_2016_workshops/w3/papers/Gurghian_DeepLanes_End-To-End_Lane_CVPR_2016_paper.pdf](http://openaccess.thecvf.com/content_cvpr_2016_workshops/w3/papers/Gurghian_DeepLanes_End-To-End_Lane_CVPR_2016_paper.pdf)
