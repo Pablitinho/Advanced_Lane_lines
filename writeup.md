@@ -30,7 +30,7 @@ The goals / steps of this project are the following:
 [image10]: ./output_images/Lane_detection_diagram.png "Lane Detection Flow"
 [image11]: ./output_images/accumulation.png "Accumulation"
 [image12]: ./output_images/line_fitting.png "Line Fitting"
-[image13]: ./output_images/Example_lane.png "Lane detection example"
+[image13]: ./output_images/output_detection.jpg "Lane detection example"
 [image14]: ./output_images/Bad_estimation.png "Bad Estimation 1"
 [image15]: ./output_images/Bad_estimation_2.png "Bad Estimation 2"
 
@@ -159,6 +159,13 @@ To determinate the radius of the curvature I was following the "Measuring module
         2 * right_fit_m[0])
 
     print(left_curverad, right_curverad)
+    
+    In order to determinate the difference between the detected lane and the vehicle center, first we determinate the middle of the lane and the car and we estimate the difference, like it is shown below:
+    
+    middle_point_m =(np.abs(left_fitx[0]-right_fitx[0])/2)+left_fitx[0]
+    diff_middle_car= ((shape[1]/2)-middle_point_m)*xm_per_pix
+
+### BECOME INTO THE OBVIOUS THAT THIS WAY TO ESTIMATE THE UNITS IN METERS IS NOT SUITABLE TO THE REAL LIFE, IN THE PROFESSIONAL WAY (IN CASE THAT YOU HAVE ONLY THE CAMERA) YOU NEED THE EXTRINSIC PARAMETERS OF THE CAMERA AND THE TRANSFORMATION MATRIX REGARDING TO YOUR VEHICLE COORDINATE SYSTEM. 
 
 #### 6. Provide an example image of your result plotted back down onto the road such that the lane area is identified clearly.
 

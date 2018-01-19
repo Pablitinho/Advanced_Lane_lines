@@ -171,9 +171,9 @@ def draw_lane(img, left_fit, right_fit, Minv):
     warped_lane = cv2.warpPerspective(color_warp, Minv, (img.shape[1], img.shape[0]))
     return cv2.addWeighted(img, 1, warped_lane, 0.3, 0)
 # ----------------------------------------------------------------------------------------------------------------
-def estimate_curvature(yMax, left_fit_temporal,right_fit_temporal):
+def estimate_curvature(shape, left_fit_temporal,right_fit_temporal):
     # ----------------------------------------------------------------------
-    ploty = np.linspace(0, yMax - 1, yMax)
+    ploty = np.linspace(0, shape[0] - 1, shape[0])
     y_eval = np.max(ploty)
 
     left_fitx = left_fit_temporal[0] * ploty ** 2 + left_fit_temporal[1] * ploty + left_fit_temporal[2]
@@ -190,8 +190,10 @@ def estimate_curvature(yMax, left_fit_temporal,right_fit_temporal):
     right_curverad = ((1 + (2 * right_fit_m[0] * y_eval * ym_per_pix + right_fit_m[1]) ** 2) ** 1.5) / np.absolute(
         2 * right_fit_m[0])
 
+    middle_point_m =(np.abs(left_fitx[0]+right_fitx[0])/2)#+left_fitx[0]
+    diff_middle_car= ((shape[1]/2)-middle_point_m)*xm_per_pix
     # ----------------------------------------------------------------------
-    return left_curverad, right_curverad
+    return left_curverad, right_curverad, middle_point_m,diff_middle_car
 # ----------------------------------------------------------------------------------------------------------------
 def detect_lane(image, left_fit_temporal,right_fit_temporal,first_time):
 
@@ -207,7 +209,7 @@ def detect_lane(image, left_fit_temporal,right_fit_temporal,first_time):
        right_fit_temporal = right_fit_temporal * (1 - alfa) + right_fit * alfa
 
     # Get the curvature of both lines
-    left_curverad, right_curverad = estimate_curvature(image.shape[0], left_fit_temporal, right_fit_temporal)
+    left_curverad, right_curverad, middle_point_m, diff_middle_car = estimate_curvature(image.shape, left_fit_temporal, right_fit_temporal)
 
     if (left_lane_num_points>right_lane_num_points):
         curvature = left_curverad
@@ -216,7 +218,7 @@ def detect_lane(image, left_fit_temporal,right_fit_temporal,first_time):
 
     print(curvature)
 
-    return left_fit_temporal, right_fit_temporal, curvature
+    return left_fit_temporal, right_fit_temporal, curvature, middle_point_m, diff_middle_car
 # --------------------------------------------------------------------------------
 def get_road_features(s_channel):
 
@@ -342,7 +344,7 @@ if (cap.isOpened()== False):
 # imio.plugins.ffmpeg.download()
 size = (int(1280), int(720))
 fourcc = cv2.VideoWriter_fourcc(*'XVID')  # 'x264' doesn't work
-out_video = cv2.VideoWriter('./output_curvature.avi', fourcc, 20.0, size, True)  # 'False' for 1-ch instead of 3-ch for color
+out_video = cv2.VideoWriter('./output_curvature_2.avi', fourcc, 20.0, size, True)  # 'False' for 1-ch instead of 3-ch for color
 
 while(cap.isOpened()):
 
@@ -393,7 +395,7 @@ while(cap.isOpened()):
     # ------------------------------------------------------------------------------------
     # Detect lane
     # ------------------------------------------------------------------------------------
-    left_fit_temporal, right_fit_temporal, curvature = detect_lane(np.uint8(road_features_integral), left_fit_temporal,
+    left_fit_temporal, right_fit_temporal, curvature, middle_point_m, diff_middle_car = detect_lane(np.uint8(road_features_integral), left_fit_temporal,
                                                         right_fit_temporal, first_time_line)
     first_time_line = False
     # ------------------------------------------------------------------------------------
@@ -402,6 +404,7 @@ while(cap.isOpened()):
     im = draw_lane(image, left_fit_temporal, right_fit_temporal, H_inv)
 
     cv2.putText(im, "Curvature:" + "{:.2f}".format(curvature), (20, 40), cv2.QT_FONT_NORMAL, 1, 255)
+    cv2.putText(im, "Difference from the center:" + "{:.2f}".format(diff_middle_car), (20, 80), cv2.QT_FONT_NORMAL, 1, 255)
     cv2.imshow("Lane detection", im)
     cv2.waitKey(10)
     out_video.write(im)
