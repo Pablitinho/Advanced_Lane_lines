@@ -30,7 +30,7 @@ The goals / steps of this project are the following:
 [image10]: ./output_images/Lane_detection_diagram.png "Lane Detection Flow"
 [image11]: ./output_images/accumulation.png "Accumulation"
 [image12]: ./output_images/line_fitting.png "Line Fitting"
-[image13]: ./output_images/output_detection.jpg "Lane detection example"
+[image13]: ./output_images/output_detection.JPG "Lane detection example"
 [image14]: ./output_images/Bad_estimation.png "Bad Estimation 1"
 [image15]: ./output_images/Bad_estimation_2.png "Bad Estimation 2"
 
